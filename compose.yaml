@@ -1,0 +1,22 @@
+services:
+  web:
+    build:
+      context: ./webClient
+      args:
+        FLUTTER_VERSION: ${FLUTTER_VERSION:-3.47.4}
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    environment:
+      BACKEND_HOST: ${BACKEND_HOST:-backend}
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      NGINX_ENVSUBST_FILTER: ^BACKEND_
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# Services added to this Compose file share its default network.
+# Nginx resolves the backend service name when an API request arrives.
