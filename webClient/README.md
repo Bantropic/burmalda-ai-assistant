@@ -1,17 +1,23 @@
-# burmalda
+# Burmalda Web
 
-A new Flutter project.
+```sh
+flutter pub get
+flutter run -d chrome
+```
 
-## Getting Started
+Без `API_BASE_URL` интерфейс открывается без запросов к серверу.
+Подключение локального ядра после его запуска:
 
-This project is a starting point for a Flutter application.
+```sh
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8080
+```
 
-A few resources to get you started if this is your first Flutter project:
+Сервер должен разрешать CORS для адреса веб-клиента.
+Для Docker с backend и Nginx: `API_BASE_URL=/api docker compose up --build -d` из корня.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- `lib/presentation` — интерфейс и состояние через ChangeNotifier.
+- `lib/domain` — модели чата и сообщения.
+- `lib/data` — HTTP-клиент и JSON.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Enter отправляет сообщение, Shift + Enter добавляет строку.
+API возвращает готовый ответ; стриминга нет. История хранится на сервере.

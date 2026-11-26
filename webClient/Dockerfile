@@ -15,7 +15,8 @@ WORKDIR /app
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
-RUN flutter build web --release --no-pub
+ARG API_BASE_URL=
+RUN flutter build web --release --no-pub --dart-define=API_BASE_URL=${API_BASE_URL}
 
 FROM nginx:stable-alpine AS runtime
 ENV BACKEND_HOST=backend BACKEND_PORT=8080 NGINX_ENVSUBST_FILTER=^BACKEND_

@@ -3,6 +3,7 @@ services:
     build:
       context: ./webClient
       args:
+        API_BASE_URL: ${API_BASE_URL:-}
         FLUTTER_VERSION: ${FLUTTER_VERSION:-3.47.4}
     ports:
       - "${WEB_PORT:-3000}:80"
@@ -18,5 +19,5 @@ services:
       retries: 3
       start_period: 10s
 
-# Services added to this Compose file share its default network.
-# Nginx resolves the backend service name when an API request arrives.
+# Сервисы из этого Compose-файла находятся в общей сети по умолчанию.
+# Nginx определяет адрес сервиса бэкенда при поступлении API-запроса.
