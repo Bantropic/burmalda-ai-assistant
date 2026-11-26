@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import dataclass
 from urllib.parse import quote
 
 import aiohttp
@@ -7,6 +8,12 @@ import aiohttp
 
 class AgentApiError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class Session:
+    id: str
+    title: str
 
 
 class AgentApi:
@@ -51,11 +58,17 @@ class AgentApi:
             raise AgentApiError('Сервер вернул некорректную сессию.')
         return value['id']
 
-    async def sessions(self) -> list[str]:
+    async def sessions(self) -> list[Session]:
         result = await self.request('GET', '/sessions')
         if not isinstance(result, list):
             raise AgentApiError('Сервер вернул некорректный список сессий.')
-        return [self.session_id(item) for item in result]
+        sessions = []
+        for item in result:
+            session_id = self.session_id(item)
+            if not isinstance(item.get('title'), str):
+                raise AgentApiError('Сервер вернул некорректное название сессии.')
+            sessions.append(Session(session_id, item['title']))
+        return sessions
 
     async def create(self) -> str:
         return self.session_id(await self.request('POST', '/sessions'))

@@ -6,7 +6,7 @@ from aiogram.methods import SendMessage
 from aiogram.types import Update
 from aiohttp import ClientSession, web
 
-from bot.api import AgentApi, AgentApiError
+from bot.api import AgentApi, AgentApiError, Session
 from bot.handlers import create_router
 
 
@@ -63,9 +63,9 @@ class BotTests(unittest.IsolatedAsyncioTestCase):
         self.api.send.assert_awaited_once_with('session-two', 'hello')
 
     async def test_list_and_long_reply(self):
-        self.api.sessions.return_value = ['a', 'b']
+        self.api.sessions.return_value = [Session('a', 'name1'), Session('b', 'name2')]
         replies = await self.send('/sessions')
-        self.assertEqual(replies[0].text, '<code>a\nb</code>')
+        self.assertEqual(replies[0].text, 'name1: <code>a</code>\nname2: <code>b</code>')
         self.assertEqual(replies[0].parse_mode, 'HTML')
         await self.send('/create_session')
         content = '<tag>😀' * 1500
@@ -115,7 +115,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_contract(self):
         self.body = [{'id': 'one', 'title': 'Test'}]
-        self.assertEqual(await self.api.sessions(), ['one'])
+        self.assertEqual(await self.api.sessions(), [Session('one', 'Test')])
         self.body = {'id': 'two', 'title': 'Test'}
         self.assertEqual(await self.api.create(), 'two')
         self.body = []

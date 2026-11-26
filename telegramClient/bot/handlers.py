@@ -9,7 +9,7 @@ from .api import AgentApi, AgentApiError
 HELP = (
     'Burmalda — ваш ИИ-ассистент.\n\n'
     '/start — показать команды\n'
-    '/sessions — список ID сессий\n'
+    '/sessions — названия и ID сессий\n'
     '/create_session — создать и выбрать сессию\n'
     '/pick_session {id} — выбрать существующую сессию\n'
     '/current_session — текущая сессия\n\n'
@@ -48,20 +48,23 @@ def create_router(api: AgentApi, allowed_peer_id: int) -> Router:
 
     @router.message(Command('sessions'))
     async def sessions(message: Message):
-        ids = await api.sessions()
-        if not ids:
+        sessions = await api.sessions()
+        if not sessions:
             await answer(message, 'Сессий пока нет. Создайте: /create_session')
             return
-        # Keep each ID intact and on its own line, including in large lists.
+        # Keep each session on its own line when splitting large lists.
         lines = []
         length = 0
-        for session_id in ids:
-            if lines and length + len(session_id) + 1 > 2000:
-                await answer(message, '\n'.join(lines), monospace=True)
+        for session in sessions:
+            title = ' '.join(session.title.split())
+            line = f'{escape(title)}: <code>{escape(session.id)}</code>'
+            visible_length = len(title) + 2 + len(session.id)
+            if lines and length + visible_length + 1 > 2000:
+                await message.answer('\n'.join(lines), parse_mode='HTML')
                 lines, length = [], 0
-            lines.append(session_id)
-            length += len(session_id) + 1
-        await answer(message, '\n'.join(lines), monospace=True)
+            lines.append(line)
+            length += visible_length + 1
+        await message.answer('\n'.join(lines), parse_mode='HTML')
 
     @router.message(Command('create_session'))
     async def create_session(message: Message):
