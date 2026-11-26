@@ -21,9 +21,12 @@ class AgentApi {
     if (!isConfigured) {
       throw AgentApiException('Агент не подключён: адрес сервера не настроен.');
     }
-    final uri = Uri.tryParse(
+    final parsed = Uri.tryParse(
       '${baseUrl.replaceFirst(RegExp(r"/+$"), "")}$path',
     );
+    final uri = parsed != null && baseUrl.startsWith('/')
+        ? Uri.base.resolveUri(parsed)
+        : parsed;
     if (uri == null ||
         !uri.hasAuthority ||
         (uri.scheme != 'http' && uri.scheme != 'https')) {
