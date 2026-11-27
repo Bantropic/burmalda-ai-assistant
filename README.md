@@ -68,7 +68,7 @@ $rng.Dispose()
 Если шлюз уже запускался, примените ключ:
 
 ```sh
-docker compose up -d --force-recreate litellm
+docker compose up -d --force-recreate litellm backend
 ```
 
 В запросах к шлюзу передавайте заголовок `Authorization: Bearer <значение LITELLM_MASTER_KEY>`.
@@ -108,7 +108,7 @@ docker compose up -d --force-recreate litellm
 docker compose logs -f litellm
 ```
 
-Для ядра в Docker: `POST http://litellm:4000/v1/chat/completions`; с компьютера: `POST http://localhost:4000/v1/chat/completions` (или порт `LITELLM_PORT`). В теле запроса используйте `"model": "burmalda"`, историю передавайте в `messages`, инструменты — в `tools`. Подключение ядра к шлюзу реализуется отдельно.
+Для ядра в Docker: `POST http://litellm:4000/v1/chat/completions`; с компьютера: `POST http://localhost:4000/v1/chat/completions` (или порт `LITELLM_PORT`). В теле запроса используйте `"model": "burmalda"`, историю передавайте в `messages`, инструменты — в `tools`. Ядро уже отправляет запросы в шлюз. В `messages` передаётся история текущей сессии в хронологическом порядке, затем новое сообщение пользователя. История хранится в памяти бэкенда и сбрасывается при его перезапуске. Таймаут задаётся через `LLM_TIMEOUT_SECONDS` (по умолчанию 120 секунд), имя модели шлюза — через `LLM_MODEL` (по умолчанию `burmalda`).
 
 ## Запуск
 
@@ -133,7 +133,7 @@ docker compose --profile telegram up --build -d
 
 ## Отдельный сервис
 
-Вместо `backend` можно указать `web`, `telegram` или `litellm`. Клиентам нужен запущенный backend, шлюзу — локальная Ollama.
+Вместо `backend` можно указать `web`, `telegram` или `litellm`. Клиентам нужен запущенный backend, бэкенду — LiteLLM, шлюзу — локальная Ollama.
 
 ```sh
 # Запуск
@@ -151,7 +151,7 @@ docker compose --profile telegram down
 
 ## Backend без Docker
 
-Нужны JDK 17+ и Maven.
+Нужны JDK 17+ и Maven, работающие LiteLLM и Ollama. Перед запуском экспортируйте `LITELLM_MASTER_KEY` из своего `.env` в окружение процесса: Spring не читает `.env` автоматически. Адрес шлюза по умолчанию — `http://localhost:4000/v1`; для другого адреса задайте `LLM_BASE_URL`.
 
 ```sh
 mvn -f agent-core/pom.xml package

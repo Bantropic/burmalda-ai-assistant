@@ -1,5 +1,7 @@
 package burmalda.service;
 
+import burmalda.llm.LlmGatewayClient;
+import burmalda.llm.LlmRequestBuilder;
 import burmalda.model.Session;
 import burmalda.model.Message;
 
@@ -13,11 +15,12 @@ import static org.springframework.http.HttpStatus.*;
 @Service
 public class SessionService {
     private final Map<String, Chat> chats = new LinkedHashMap<>();
-    private final long delayMillis;
+    private final LlmGatewayClient gateway;
+    private final String model;
 
-    public SessionService(@Value("${mock.delay-seconds}") double delaySeconds) {
-        if (!Double.isFinite(delaySeconds)) throw new IllegalArgumentException("Delay must be finite");
-        this.delayMillis = (long) (Math.max(0, delaySeconds) * 1000);
+    public SessionService(LlmGatewayClient gateway, @Value("${llm.model}") String model) {
+        this.gateway = gateway;
+        this.model = model;
     }
 
     public synchronized List<Session> getSessions() {
@@ -44,18 +47,19 @@ public class SessionService {
         }
         try {
             var userMessage = Message.create("user", content);
-            Thread.sleep(delayMillis);
-            if (content.strip().equals("/error")) {
-                throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Simulated agent failure");
+            var builder = new LlmRequestBuilder(model);
+            synchronized (chat.messages) {
+                for (var message : chat.messages) {
+                    builder.addMessage(message.role(), message.content());
+                }
             }
-            var answer = Message.create("assistant", "Тестовый ответ: ты написал «" + content + "»");
+            var request = builder.addMessage("user", content).build();
+            var response = gateway.complete(request);
+            var answer = Message.create("assistant", response.choices().get(0).message().content());
             synchronized (chat.messages) {
                 chat.messages.addAll(List.of(userMessage, answer));
             }
             return answer;
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new ResponseStatusException(INTERNAL_SERVER_ERROR, "Agent execution interrupted");
         } finally {
             chat.busy.set(false);
         }
