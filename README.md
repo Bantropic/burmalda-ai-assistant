@@ -24,7 +24,7 @@ cp -n .env.example .env
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
-Скачайте модель: модель устанавливается локально для каждого пользователя. В Docker не получится его завернуть.
+В нашей конфигурации Ollama и модель запускаются локально у каждого участника, а LiteLLM — в Docker.
 ```
 ollama pull <имя-модели>
 ```
@@ -36,14 +36,88 @@ ollama pull qwen3.5:4b
 
 Вы можете использовать любую другую LLM под ваши требования и/или системные возможности.
 
+## LLM-шлюз
+
+В `.env` укажите установленную модель с префиксом `ollama_chat/` и токен доступа в шлюз:
+
+```dotenv
+LITELLM_MODEL=ollama_chat/qwen3.5:4b
+LITELLM_PORT=4000
+```
+
+Шлюзу нужен ключ доступа. Каждый участник один раз генерирует свой ключ следующей командой.
+
+macOS / Linux:
+
+```sh
+echo "LITELLM_MASTER_KEY=sk-$(openssl rand -hex 32)"
+```
+
+Windows (PowerShell):
+
+```powershell
+$bytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+"LITELLM_MASTER_KEY=sk-" + [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
+$rng.Dispose()
+```
+
+Скопируйте выведенную строку целиком в `.env`, заменив существующую строку `LITELLM_MASTER_KEY=`, если она есть. Команда только выводит ключ, файл не меняет. Не коммитьте ключ.
+
+Если шлюз уже запускался, примените ключ:
+
+```sh
+docker compose up -d --force-recreate litellm
+```
+
+В запросах к шлюзу передавайте заголовок `Authorization: Bearer <значение LITELLM_MASTER_KEY>`.
+
+Разрешите Ollama принимать подключения из Docker:
+
+**macOS:** выполните команду и перезапустите приложение Ollama. После перезагрузки Mac команду может потребоваться повторить.
+
+```sh
+launchctl setenv OLLAMA_HOST "0.0.0.0:11434"
+```
+
+**Windows (PowerShell):** закройте Ollama в трее, выполните команду и откройте Ollama через «Пуск».
+
+```powershell
+[Environment]::SetEnvironmentVariable("OLLAMA_HOST", "0.0.0.0:11434", "User")
+```
+
+**Linux (systemd):** выполните `sudo systemctl edit ollama.service` и добавьте:
+
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+`0.0.0.0` разрешает подключения через все сетевые интерфейсы, включая локальную сеть. Не открывайте порт `11434` в интернет.
+
+Шлюз запускается вместе с проектом. Отдельный запуск и применение изменений `.env` или конфига:
+
+```sh
+docker compose up -d --force-recreate litellm
+docker compose logs -f litellm
+```
+
+Для ядра в Docker: `POST http://litellm:4000/v1/chat/completions`; с компьютера: `POST http://localhost:4000/v1/chat/completions` (или порт `LITELLM_PORT`). В теле запроса используйте `"model": "burmalda"`, историю передавайте в `messages`, инструменты — в `tools`. Подключение ядра к шлюзу реализуется отдельно.
+
 ## Запуск
 
-#### Backend + Web
+#### Backend + Web + LiteLLM
 ```sh
 docker compose up --build -d
 ```
 
-#### Backend + Web + Telegram
+#### Backend + Web + LiteLLM + Telegram
 ```sh
 docker compose --profile telegram up --build -d
 ```
@@ -59,7 +133,7 @@ docker compose --profile telegram up --build -d
 
 ## Отдельный сервис
 
-Вместо `backend` можно указать `web` или `telegram`. Клиентам нужен запущенный backend.
+Вместо `backend` можно указать `web`, `telegram` или `litellm`. Клиентам нужен запущенный backend, шлюзу — локальная Ollama.
 
 ```sh
 # Запуск
