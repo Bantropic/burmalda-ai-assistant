@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: ./agent-core
+    ports:
+      - "127.0.0.1:${MOCK_PORT:-8080}:8080"
+    environment:
+      MOCK_DELAY_SECONDS: ${MOCK_DELAY_SECONDS:-1}
+    restart: unless-stopped
+
+  telegram:
+    profiles: [telegram]
+    build:
+      context: ./telegramClient
+    env_file: .env
+    environment:
+      TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-http://backend:8080}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./webClient
+      args:
+        API_BASE_URL: ${API_BASE_URL:-/api}
+        FLUTTER_VERSION: ${FLUTTER_VERSION:-3.47.4}
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    environment:
+      BACKEND_HOST: ${BACKEND_HOST:-backend}
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      NGINX_ENVSUBST_FILTER: ^BACKEND_
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# Сервисы из этого Compose-файла находятся в общей сети по умолчанию.
+# Nginx определяет адрес сервиса бэкенда при поступлении API-запроса.
