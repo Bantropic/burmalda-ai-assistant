@@ -124,9 +124,14 @@ class SessionApiTest {
         }
         var requests = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
         verify(gateway, times(2)).complete(requests.capture());
-        assertEquals(List.of(new LlmMessage("user", "First")),
+        var systemPrompt = new org.springframework.core.io.ClassPathResource("prompts/AGENTS.md")
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8).strip();
+        assertFalse(systemPrompt.isBlank());
+        var systemMessage = new LlmMessage("system", systemPrompt);
+        assertEquals(List.of(systemMessage, new LlmMessage("user", "First")),
                 requests.getAllValues().get(0).messages());
         assertEquals(List.of(
+                systemMessage,
                 new LlmMessage("user", "First"),
                 new LlmMessage("assistant", "Привет от модели"),
                 new LlmMessage("user", "Second")), requests.getValue().messages());
@@ -139,7 +144,7 @@ class SessionApiTest {
                 .andExpect(status().isOk());
         var allRequests = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
         verify(gateway, times(3)).complete(allRequests.capture());
-        assertEquals(List.of(new LlmMessage("user", "Other chat")),
+        assertEquals(List.of(systemMessage, new LlmMessage("user", "Other chat")),
                 allRequests.getValue().messages());
     }
 }

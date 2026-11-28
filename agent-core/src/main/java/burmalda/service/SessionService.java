@@ -6,8 +6,11 @@ import burmalda.model.Session;
 import burmalda.model.Message;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static org.springframework.http.HttpStatus.*;
@@ -17,10 +20,14 @@ public class SessionService {
     private final Map<String, Chat> chats = new LinkedHashMap<>();
     private final LlmGatewayClient gateway;
     private final String model;
+    private final String systemPrompt;
 
-    public SessionService(LlmGatewayClient gateway, @Value("${llm.model}") String model) {
+    public SessionService(LlmGatewayClient gateway, @Value("${llm.model}") String model) throws IOException {
         this.gateway = gateway;
         this.model = model;
+        this.systemPrompt = new ClassPathResource("prompts/AGENTS.md")
+                .getContentAsString(StandardCharsets.UTF_8).strip();
+        if (systemPrompt.isBlank()) throw new IllegalStateException("System prompt is required");
     }
 
     public synchronized List<Session> getSessions() {
@@ -47,7 +54,7 @@ public class SessionService {
         }
         try {
             var userMessage = Message.create("user", content);
-            var builder = new LlmRequestBuilder(model);
+            var builder = new LlmRequestBuilder(model).addMessage("system", systemPrompt);
             synchronized (chat.messages) {
                 for (var message : chat.messages) {
                     builder.addMessage(message.role(), message.content());
