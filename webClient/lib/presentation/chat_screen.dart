@@ -75,7 +75,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> send() async {
     final text = input.text;
-    if (await chat.send(text) && mounted) input.clear();
+    if (chat.isBusy || chat.needsHistoryReload || text.trim().isEmpty) return;
+    input.clear();
+    final success = await chat.send(text);
+    if (!mounted) return;
+    if (!success && input.text.isEmpty) {
+      input.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+    setState(() {});
     if (mounted) focus.requestFocus();
   }
 
