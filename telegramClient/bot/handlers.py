@@ -104,8 +104,14 @@ def create_router(api: AgentApi, allowed_peer_id: int) -> Router:
         if not message.text.strip():
             await answer(message, 'Отправьте непустое текстовое сообщение.')
             return
-        response = await api.send(current_session, message.text)
-        await answer(message, response if response.strip() else 'Агент вернул пустой ответ.')
+        pending = await message.answer('<i>Burmalda думает…</i>', parse_mode='HTML')
+        try:
+            response = await api.send(current_session, message.text)
+        except AgentApiError as error:
+            response = str(error)
+        response = response if response.strip() else 'Агент вернул пустой ответ.'
+        await pending.edit_text(response[:2000], parse_mode=None)
+        await answer(message, response[2000:])
 
     @router.message()
     async def unsupported(message: Message):
