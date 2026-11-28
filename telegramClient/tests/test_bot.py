@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import AsyncMock
 
 from aiogram import Bot, Dispatcher
-from aiogram.methods import SendMessage
-from aiogram.types import Update
+from aiogram.methods import EditMessageText, SendMessage
+from aiogram.types import Message, Update
 from aiohttp import ClientSession, web
 
 from bot.api import AgentApi, AgentApiError, Session
@@ -17,6 +17,11 @@ class BotTests(unittest.IsolatedAsyncioTestCase):
         self.api.send.return_value = 'Ответ агента'
         self.bot = Bot('123456:TEST_TOKEN')
         self.bot.session = AsyncMock()
+        self.bot.session.return_value = Message.model_validate({
+            'message_id': 100, 'date': 0,
+            'chat': {'id': 42, 'type': 'private'},
+            'text': 'Burmalda думает…',
+        }).as_(self.bot)
         self.dispatcher = Dispatcher(disable_fsm=True)
         self.dispatcher.include_router(create_router(self.api, 42))
         self.update_id = 0
@@ -37,7 +42,7 @@ class BotTests(unittest.IsolatedAsyncioTestCase):
         })
         await self.dispatcher.feed_update(self.bot, update)
         return [call.args[1] for call in self.bot.session.call_args_list
-                if isinstance(call.args[1], SendMessage)]
+                if isinstance(call.args[1], (SendMessage, EditMessageText))]
 
     async def test_access_and_local_commands_do_not_call_api(self):
         for command in ['/start', '/sessions', '/create_session', '/pick_session x',
@@ -71,9 +76,26 @@ class BotTests(unittest.IsolatedAsyncioTestCase):
         content = '<tag>😀' * 1500
         self.api.send.return_value = content
         replies = await self.send('hello')
-        self.assertEqual(''.join(reply.text for reply in replies), content)
+        self.assertEqual(replies[0].text, '<i>Burmalda думает…</i>')
+        self.assertEqual(replies[0].parse_mode, 'HTML')
+        self.assertIsInstance(replies[1], EditMessageText)
+        self.assertEqual(replies[1].message_id, 100)
+        self.assertEqual(''.join(reply.text for reply in replies[1:]), content)
         self.assertTrue(all(len(reply.text.encode('utf-16-le')) // 2 <= 4096
-                            and reply.parse_mode is None for reply in replies))
+                            and reply.parse_mode is None for reply in replies[1:]))
+
+    async def test_pending_is_replaced_on_error_or_empty_response(self):
+        await self.send('/create_session')
+        self.api.send.side_effect = AgentApiError('Ошибка сервера')
+        replies = await self.send('hello')
+        self.assertEqual(len(replies), 2)
+        self.assertIsInstance(replies[1], EditMessageText)
+        self.assertEqual(replies[1].text, 'Ошибка сервера')
+        self.api.send.side_effect = None
+        self.api.send.return_value = ' '
+        replies = await self.send('hello')
+        self.assertIsInstance(replies[1], EditMessageText)
+        self.assertEqual(replies[1].text, 'Агент вернул пустой ответ.')
 
     async def test_invalid_commands_and_failed_create_preserve_session(self):
         await self.send('/create_session')
